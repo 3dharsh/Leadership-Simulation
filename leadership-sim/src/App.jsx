@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   User, 
   Play, 
@@ -7,33 +7,69 @@ import {
   TrendingDown, 
   BarChart3, 
   ShieldAlert, 
-  CheckCircle, 
   Award, 
   Briefcase,
   BrainCircuit,
-  Users
+  Users,
+  Volume2,
+  VolumeX
 } from 'lucide-react';
+import Logo from './assets/logovig.png';
+
+// --- AUDIO ENGINE ---
+// Uses the native Web Audio API to create UI sound effects without external files
+class AudioSystem {
+  constructor() {
+    this.ctx = null;
+  }
+  init() {
+    if (!this.ctx) {
+      this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    if (this.ctx.state === 'suspended') this.ctx.resume();
+  }
+  play(freq, type, duration, vol) {
+    if (!this.ctx) return;
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+    osc.type = type;
+    osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+    gain.gain.setValueAtTime(vol, this.ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + duration);
+    osc.connect(gain);
+    gain.connect(this.ctx.destination);
+    osc.start();
+    osc.stop(this.ctx.currentTime + duration);
+  }
+  hover() { this.play(300, 'sine', 0.1, 0.02); }
+  click() { this.play(500, 'triangle', 0.1, 0.05); }
+  success() {
+    this.play(400, 'sine', 0.1, 0.05);
+    setTimeout(() => this.play(600, 'sine', 0.2, 0.05), 100);
+  }
+  error() {
+    this.play(200, 'sawtooth', 0.1, 0.05);
+    setTimeout(() => this.play(150, 'sawtooth', 0.2, 0.05), 100);
+  }
+}
+const sfx = new AudioSystem();
+
 
 // --- CONFIGURATION & DATA ---
 
 const IMAGES = {
   officeBlurred: "https://images.unsplash.com/photo-1497366216548-37526070297c?auto=format&fit=crop&q=80&w=1920",
   meetingRoom: "https://images.unsplash.com/photo-1604328698692-f76ea9498e76?auto=format&fit=crop&q=80&w=1920",
-  character: "https://images.unsplash.com/photo-1556761175-5973dc0f32b7?auto=format&fit=crop&q=80&w=1920"
 };
 
-const INITIAL_METRICS = {
-  trust: 50,
-  accountability: 50,
-  morale: 50,
-  transparency: 50
-};
+const INITIAL_METRICS = { trust: 50, accountability: 50, morale: 50, transparency: 50 };
 
 const PATH_1_DATA = {
   A: {
     id: 'A',
     dialogue: "I thought I could handle it… I didn’t expect this reaction.",
     visualCue: "Rahul's expression becomes defensive. He leans back slightly.",
+    emotion: 'defensive',
     overlayColor: "bg-red-900/30",
     deltas: { trust: -15, accountability: 15, morale: -20, transparency: -10 },
     feedback: [
@@ -46,6 +82,7 @@ const PATH_1_DATA = {
     id: 'B',
     dialogue: "Actually, I’ve been juggling multiple priorities and wasn’t sure how to escalate.",
     visualCue: "Rahul relaxes his posture and makes eye contact.",
+    emotion: 'relaxed',
     overlayColor: "bg-green-900/20",
     deltas: { trust: 25, accountability: 5, morale: 15, transparency: 25 },
     feedback: [
@@ -58,32 +95,67 @@ const PATH_1_DATA = {
     id: 'C',
     dialogue: "I understand… I’ll try to improve.",
     visualCue: "Rahul looks frustrated and avoids engagement. His tone is disengaged.",
+    emotion: 'frustrated',
     overlayColor: "bg-red-900/40",
     deltas: { trust: -25, accountability: -5, morale: -30, transparency: -20 },
     feedback: [
       { label: "Morale", change: "down", value: "↓↓" },
       { label: "Engagement", change: "down", value: "↓" },
-      { label: "Attrition Risk", change: "up", value: "↑" } // Treated as negative impact on our score
+      { label: "Attrition Risk", change: "up", value: "↑" }
     ]
   }
 };
 
 const PATH_2_DATA = {
-  A: {
-    id: 'A',
-    deltas: { trust: 10, accountability: -10, morale: 20, transparency: 5 }
-  },
-  B: {
-    id: 'B',
-    deltas: { trust: -5, accountability: 25, morale: -15, transparency: 5 }
-  },
-  C: {
-    id: 'C',
-    deltas: { trust: -30, accountability: 10, morale: -25, transparency: -10 }
-  }
+  A: { id: 'A', deltas: { trust: 10, accountability: -10, morale: 20, transparency: 5 } },
+  B: { id: 'B', deltas: { trust: -5, accountability: 25, morale: -15, transparency: 5 } },
+  C: { id: 'C', deltas: { trust: -30, accountability: 10, morale: -25, transparency: -10 } }
 };
 
 // --- COMPONENTS ---
+
+// Dynamic Vector Avatar that changes facial expressions
+const VectorAvatar = ({ emotion = 'neutral', className = "w-48 h-48" }) => {
+  const ex = {
+    neutral: { browL: "M 35 40 Q 45 35 55 40", browR: "M 65 40 Q 75 35 85 40", mouth: "M 45 70 Q 60 75 75 70" },
+    defensive: { browL: "M 35 35 L 55 43", browR: "M 85 35 L 65 43", mouth: "M 45 75 Q 60 65 75 75" },
+    relaxed: { browL: "M 35 38 Q 45 32 55 38", browR: "M 65 38 Q 75 32 85 38", mouth: "M 45 68 Q 60 85 75 68" },
+    frustrated: { browL: "M 35 45 L 55 37", browR: "M 85 45 L 65 37", mouth: "M 45 72 L 75 72" }
+  }[emotion];
+
+  return (
+    <div className={`relative flex justify-center items-end bg-gradient-to-t from-black/80 to-transparent rounded-t-2xl border-b border-[#4A90E2]/30 ${className}`}>
+      <svg viewBox="0 0 120 120" className="w-full h-full drop-shadow-2xl" fill="none" xmlns="http://www.w3.org/2000/svg">
+        {/* Base Shirt */}
+        <path d="M 20 120 Q 60 80 100 120 L 100 120 L 20 120" fill="#E2E8F0"/>
+        {/* Tie */}
+        <path d="M 50 95 L 60 120 L 70 95 Z" fill="#4A90E2"/>
+        {/* Suit Jacket Left & Right */}
+        <path d="M 15 120 Q 40 100 50 95 L 50 120 Z" fill="#1e293b"/>
+        <path d="M 105 120 Q 80 100 70 95 L 70 120 Z" fill="#1e293b"/>
+        {/* Head */}
+        <rect x="30" y="15" width="60" height="75" rx="30" fill="#fcd5ce" stroke="#e8a598" strokeWidth="1.5"/>
+        {/* Hair */}
+        <path d="M 30 45 Q 30 10 60 15 Q 90 10 90 45 Q 75 20 60 25 Q 45 20 30 45" fill="#0f172a"/>
+        {/* Eyes (Constant) */}
+        <path d="M 45 50 A 4 4 0 1 1 45 49.9" stroke="#0f172a" strokeWidth="4" strokeLinecap="round"/>
+        <path d="M 75 50 A 4 4 0 1 1 75 49.9" stroke="#0f172a" strokeWidth="4" strokeLinecap="round"/>
+        {/* Glasses */}
+        <rect x="35" y="44" width="20" height="14" rx="2" stroke="#4A90E2" strokeWidth="1.5" fill="none"/>
+        <rect x="65" y="44" width="20" height="14" rx="2" stroke="#4A90E2" strokeWidth="1.5" fill="none"/>
+        <path d="M 55 51 L 65 51" stroke="#4A90E2" strokeWidth="1.5"/>
+        {/* Dynamic Facial Features */}
+        <path d={ex.browL} stroke="#0f172a" strokeWidth="3" strokeLinecap="round" className="transition-all duration-500"/>
+        <path d={ex.browR} stroke="#0f172a" strokeWidth="3" strokeLinecap="round" className="transition-all duration-500"/>
+        <path d={ex.mouth} stroke="#0f172a" strokeWidth="3" strokeLinecap="round" className="transition-all duration-500"/>
+        {/* Frustrated Sweat Drop */}
+        {emotion === 'frustrated' && (
+          <path d="M 85 25 Q 90 35 85 40 Q 80 35 85 25" fill="#60a5fa" opacity="0.8" className="animate-pulse"/>
+        )}
+      </svg>
+    </div>
+  );
+};
 
 const BackgroundContainer = ({ image, blurred = false, overlay = "bg-black/40", children }) => (
   <div className="relative min-h-screen w-full flex items-center justify-center overflow-hidden bg-[#121212] text-white font-sans">
@@ -98,7 +170,7 @@ const BackgroundContainer = ({ image, blurred = false, overlay = "bg-black/40", 
   </div>
 );
 
-const Button = ({ onClick, children, variant = 'primary', className = '' }) => {
+const Button = ({ onClick, children, variant = 'primary', className = '', isAudioOn }) => {
   const baseStyle = "px-6 py-3 rounded-md font-medium transition-all duration-300 transform hover:-translate-y-0.5 flex items-center justify-center gap-2 w-full sm:w-auto";
   const variants = {
     primary: "bg-[#4A90E2] hover:bg-[#357ABD] text-white shadow-lg hover:shadow-blue-500/25",
@@ -107,7 +179,14 @@ const Button = ({ onClick, children, variant = 'primary', className = '' }) => {
   };
   
   return (
-    <button onClick={onClick} className={`${baseStyle} ${variants[variant]} ${className}`}>
+    <button 
+      onMouseEnter={() => isAudioOn && sfx.hover()}
+      onClick={(e) => {
+        if (isAudioOn) sfx.click();
+        onClick(e);
+      }} 
+      className={`${baseStyle} ${variants[variant]} ${className}`}
+    >
       {children}
     </button>
   );
@@ -118,18 +197,71 @@ export default function App() {
   const [userName, setUserName] = useState('');
   const [metrics, setMetrics] = useState(INITIAL_METRICS);
   const [choices, setChoices] = useState({ 1: null, 2: null });
+  const [isAudioOn, setIsAudioOn] = useState(false);
 
-  // Update metrics helper
+  // --- TTS NARRATION SYSTEM ---
+  useEffect(() => {
+    if (!isAudioOn) {
+      window.speechSynthesis.cancel();
+      return;
+    }
+
+    window.speechSynthesis.cancel(); // Stop any existing speech
+    let textToSpeak = "";
+    let pitch = 1; // Default System Voice
+    let rate = 1;
+
+    // Define context-specific dialogue
+    if (screen === 2) textToSpeak = "Scenario Brief. You are a Team Manager leading a high-performing unit. Recently, Rahul has been missing deadlines and showing signs of disengagement.";
+    else if (screen === 3) textToSpeak = "You enter the meeting room. Rahul is already seated. He looks slightly disengaged, staring at his notebook and avoiding eye contact.";
+    else if (screen === 4) {
+      textToSpeak = "I've been overloaded lately... I couldn't manage all the deadlines.";
+      pitch = 0.8; // Rahul's Voice
+      rate = 0.95;
+    }
+    else if (screen === 5) {
+      textToSpeak = PATH_1_DATA[choices[1]].dialogue;
+      pitch = PATH_1_DATA[choices[1]].emotion === 'frustrated' ? 0.9 : 0.8;
+      rate = PATH_1_DATA[choices[1]].emotion === 'relaxed' ? 1 : 0.9;
+    }
+    else if (screen === 6) textToSpeak = "System prompt. How would you like to resolve this situation and move forward?";
+    else if (screen === 7) textToSpeak = "Simulation Complete. Please review your narrative feedback and performance score.";
+
+    if (textToSpeak) {
+      const utterance = new SpeechSynthesisUtterance(textToSpeak);
+      utterance.pitch = pitch;
+      utterance.rate = rate;
+      window.speechSynthesis.speak(utterance);
+    }
+
+    // Cleanup when component unmounts or screen changes
+    return () => window.speechSynthesis.cancel();
+  }, [screen, isAudioOn, choices]);
+
+  // --- LOGIC HANDLERS ---
   const applyDeltas = (deltas) => {
     setMetrics(prev => {
       const newMetrics = { ...prev };
+      let isPositive = false;
       Object.keys(deltas).forEach(key => {
         if (newMetrics[key] !== undefined) {
           newMetrics[key] = Math.max(0, Math.min(100, newMetrics[key] + deltas[key]));
+          if (deltas[key] > 0) isPositive = true;
         }
       });
+      // Play outcome audio effect
+      if (isAudioOn) {
+        if (isPositive) sfx.success(); else sfx.error();
+      }
       return newMetrics;
     });
+  };
+
+  const startSimulation = () => {
+    setIsAudioOn(true); // Automatically enable audio on interaction
+    sfx.init();
+    sfx.click();
+    setScreen(2);
   };
 
   const handleChoice1 = (choiceId) => {
@@ -148,9 +280,23 @@ export default function App() {
     setMetrics(INITIAL_METRICS);
     setChoices({ 1: null, 2: null });
     setScreen(1);
+    window.speechSynthesis.cancel();
   };
 
-  // --- SCREENS ---
+  // --- UI COMPONENTS ---
+  const AudioToggle = () => (
+    <button 
+      onClick={() => {
+        setIsAudioOn(!isAudioOn);
+        if (!isAudioOn) sfx.init();
+      }}
+      className="absolute top-4 right-4 z-50 p-3 bg-black/50 border border-gray-600 rounded-full hover:bg-black/80 transition-all text-white backdrop-blur-md"
+      title="Toggle Audio & Narration"
+    >
+      {isAudioOn ? <Volume2 className="w-5 h-5 text-green-400" /> : <VolumeX className="w-5 h-5 text-red-400" />}
+    </button>
+  );
+
 
   const renderScreen = () => {
     switch (screen) {
@@ -158,11 +304,11 @@ export default function App() {
         return (
           <BackgroundContainer image={IMAGES.officeBlurred} blurred>
             <div className="bg-[#1E1E1E]/90 backdrop-blur-xl border border-white/10 p-8 rounded-2xl w-full max-w-md shadow-2xl flex flex-col items-center text-center">
-              <div className="w-16 h-16 bg-[#4A90E2]/20 rounded-2xl flex items-center justify-center mb-6 border border-[#4A90E2]/30">
-                <BrainCircuit className="text-[#4A90E2] w-8 h-8" />
+              <div className="w-38 h-25 bg-[#4A90E2]/20 rounded-2xl flex items-center justify-center mb-6 border border-[#4A90E2]/30">
+                <img className="w-23 h-13 object-contain animate-pulse rounded" src={Logo} alt="Logo" />
               </div>
-              <h1 className="text-3xl font-bold mb-2 tracking-tight">Leadership Simulation Lab</h1>
-              <p className="text-gray-400 text-sm mb-8">Experience real-world leadership scenarios in a risk-free environment.</p>
+              <h1 className="text-3xl font-bold mb-2 tracking-tight">Vighnesh Inc Leadership Virtual Simulation Lab</h1>
+              <p className="text-gray-400 text-sm mb-8">Experience real-world leadership scenarios with full VR-style audio and visual feedback.</p>
               
               <div className="w-full mb-6">
                 <div className="relative">
@@ -177,9 +323,10 @@ export default function App() {
                 </div>
               </div>
               
-              <Button onClick={() => setScreen(2)} className="w-full">
+              <Button onClick={startSimulation} className="w-full" isAudioOn={isAudioOn}>
                 Start Simulation <Play className="w-4 h-4 ml-1" />
               </Button>
+              <p className="mt-4 text-xs text-gray-500">Enable volume for the full immersive experience.</p>
             </div>
           </BackgroundContainer>
         );
@@ -187,6 +334,7 @@ export default function App() {
       case 2: // BRIEFING
         return (
           <BackgroundContainer image={IMAGES.officeBlurred} overlay="bg-[#121212]/90">
+            <AudioToggle />
             <div className="max-w-5xl w-full grid md:grid-cols-2 gap-8 items-center h-full">
               <div className="flex flex-col justify-center space-y-6">
                 <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-500/10 text-[#4A90E2] text-sm font-semibold border border-blue-500/20 w-fit">
@@ -203,7 +351,7 @@ export default function App() {
                   </p>
                 </div>
                 <div className="pt-4">
-                  <Button onClick={() => setScreen(3)}>
+                  <Button onClick={() => setScreen(3)} isAudioOn={isAudioOn}>
                     Enter Simulation <ArrowRight className="w-4 h-4" />
                   </Button>
                 </div>
@@ -211,7 +359,7 @@ export default function App() {
               <div className="hidden md:block h-96 rounded-2xl overflow-hidden relative shadow-2xl border border-white/10">
                 <img src={IMAGES.meetingRoom} alt="Meeting Room" className="w-full h-full object-cover" />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent flex items-end p-6">
-                  <p className="text-sm font-medium text-gray-300">Virtual Environment: Conference Room B</p>
+                  <p className="text-sm font-medium text-gray-300 flex items-center gap-2"><Volume2 className="w-4 h-4"/> Audio Environment: Conference Room B</p>
                 </div>
               </div>
             </div>
@@ -221,13 +369,19 @@ export default function App() {
       case 3: // IMMERSIVE ENTRY
         return (
           <BackgroundContainer image={IMAGES.meetingRoom} overlay="bg-black/60">
+            <AudioToggle />
+            {/* Visual Vector Intro */}
+            <div className="absolute bottom-40 left-1/2 -translate-x-1/2 opacity-70">
+                <VectorAvatar emotion="neutral" className="w-40 h-40 blur-[2px]" />
+            </div>
+
             <div className="absolute bottom-10 left-1/2 -translate-x-1/2 w-full max-w-3xl px-4">
               <div className="bg-[#1E1E1E]/80 backdrop-blur-md border border-white/10 p-6 sm:p-8 rounded-xl shadow-2xl">
                 <p className="text-xl sm:text-2xl font-light leading-relaxed mb-6 italic text-gray-200">
                   "You enter the meeting room. Rahul is already seated. He looks slightly disengaged, staring at his notebook and avoiding eye contact."
                 </p>
                 <div className="flex justify-end">
-                  <Button onClick={() => setScreen(4)} variant="outline">
+                  <Button onClick={() => setScreen(4)} variant="outline" isAudioOn={isAudioOn}>
                     Take a seat <ArrowRight className="w-4 h-4" />
                   </Button>
                 </div>
@@ -238,13 +392,20 @@ export default function App() {
 
       case 4: // FIRST DECISION POINT
         return (
-          <BackgroundContainer image={IMAGES.character} overlay="bg-black/70">
+          <BackgroundContainer image={IMAGES.officeBlurred} overlay="bg-black/70">
+            <AudioToggle />
+            
             <div className="absolute inset-0 flex flex-col justify-end pb-8 px-4 sm:px-8 max-w-5xl mx-auto w-full">
               
+              {/* Dynamic Avatar Container */}
+              <div className="flex justify-center mb-[-2rem] relative z-0">
+                 <VectorAvatar emotion="neutral" className="w-56 h-56" />
+              </div>
+
               {/* Character Dialogue */}
-              <div className="bg-[#1E1E1E]/90 backdrop-blur-xl border border-gray-700 p-6 rounded-t-2xl shadow-2xl relative mb-4">
-                <div className="absolute -top-4 left-6 bg-[#4A90E2] text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider">
-                  Rahul
+              <div className="bg-[#1E1E1E]/90 backdrop-blur-xl border border-gray-700 p-6 rounded-t-2xl shadow-2xl relative mb-4 z-10">
+                <div className="absolute -top-4 left-6 bg-[#4A90E2] text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider flex items-center gap-2">
+                  <Volume2 className="w-3 h-3" /> Rahul
                 </div>
                 <p className="text-xl text-gray-100 mt-2">
                   "I've been overloaded lately... I couldn't manage all the deadlines."
@@ -252,16 +413,16 @@ export default function App() {
               </div>
 
               {/* Choices */}
-              <div className="flex flex-col space-y-3">
-                <Button variant="option" onClick={() => handleChoice1('A')}>
+              <div className="flex flex-col space-y-3 z-10">
+                <Button variant="option" onClick={() => handleChoice1('A')} isAudioOn={isAudioOn}>
                   <span className="font-semibold text-gray-400 mr-3">A.</span>
                   "You should have informed me earlier. We can't let client deliverables slip."
                 </Button>
-                <Button variant="option" onClick={() => handleChoice1('B')}>
+                <Button variant="option" onClick={() => handleChoice1('B')} isAudioOn={isAudioOn}>
                   <span className="font-semibold text-gray-400 mr-3">B.</span>
                   "I see. Let’s break down your current tasks and understand what’s blocking you."
                 </Button>
-                <Button variant="option" onClick={() => handleChoice1('C')}>
+                <Button variant="option" onClick={() => handleChoice1('C')} isAudioOn={isAudioOn}>
                   <span className="font-semibold text-gray-400 mr-3">C.</span>
                   "This level of performance is unacceptable for someone at your level."
                 </Button>
@@ -273,7 +434,8 @@ export default function App() {
       case 5: // FEEDBACK PATH
         const currentPath = PATH_1_DATA[choices[1]];
         return (
-          <BackgroundContainer image={IMAGES.character} overlay={currentPath.overlayColor + " backdrop-blur-sm"}>
+          <BackgroundContainer image={IMAGES.officeBlurred} overlay={currentPath.overlayColor + " backdrop-blur-sm"}>
+            <AudioToggle />
             
             {/* VR HUD Feedback Overlay */}
             <div className="absolute top-8 right-8 bg-black/60 backdrop-blur-md border border-white/10 p-5 rounded-xl shadow-2xl min-w-[200px] animate-[slideInRight_0.5s_ease-out]">
@@ -293,6 +455,11 @@ export default function App() {
               </div>
             </div>
 
+            {/* Dynamic Avatar */}
+            <div className="absolute top-[20%] left-1/2 -translate-x-1/2 drop-shadow-2xl">
+                <VectorAvatar emotion={currentPath.emotion} className="w-64 h-64" />
+            </div>
+
             <div className="absolute bottom-10 left-1/2 -translate-x-1/2 w-full max-w-3xl px-4">
               <div className="bg-[#1E1E1E]/90 backdrop-blur-md border border-white/10 p-6 sm:p-8 rounded-xl shadow-2xl">
                 
@@ -301,17 +468,18 @@ export default function App() {
                     <User className="w-6 h-6 text-gray-400" />
                   </div>
                   <div>
-                    <p className="text-sm text-[#4A90E2] font-semibold mb-1 uppercase tracking-wider">Visual Cue</p>
+                    <p className="text-sm text-[#4A90E2] font-semibold mb-1 uppercase tracking-wider">Visual Cue observed</p>
                     <p className="text-gray-300 italic">{currentPath.visualCue}</p>
                   </div>
                 </div>
 
-                <div className="bg-black/30 p-5 rounded-lg border-l-4 border-[#4A90E2] mb-6">
-                  <p className="text-lg font-medium">"{currentPath.dialogue}"</p>
+                <div className="bg-black/30 p-5 rounded-lg border-l-4 border-[#4A90E2] mb-6 relative">
+                  <Volume2 className="absolute top-5 right-5 w-4 h-4 text-gray-500" />
+                  <p className="text-lg font-medium pr-8">"{currentPath.dialogue}"</p>
                 </div>
 
                 <div className="flex justify-end">
-                  <Button onClick={() => setScreen(6)}>
+                  <Button onClick={() => setScreen(6)} isAudioOn={isAudioOn}>
                     Continue Conversation <ArrowRight className="w-4 h-4" />
                   </Button>
                 </div>
@@ -322,12 +490,13 @@ export default function App() {
 
       case 6: // SECOND DECISION POINT
         return (
-          <BackgroundContainer image={IMAGES.character} overlay="bg-black/70">
+          <BackgroundContainer image={IMAGES.officeBlurred} overlay="bg-black/70">
+            <AudioToggle />
             <div className="absolute inset-0 flex flex-col justify-end pb-8 px-4 sm:px-8 max-w-5xl mx-auto w-full">
               
               <div className="bg-[#1E1E1E]/90 backdrop-blur-xl border border-gray-700 p-6 rounded-t-2xl shadow-2xl relative mb-4">
-                 <div className="absolute -top-4 left-6 bg-gray-600 text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider">
-                  System Prompt
+                 <div className="absolute -top-4 left-6 bg-gray-600 text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider flex items-center gap-2">
+                  <Volume2 className="w-3 h-3" /> System Prompt
                 </div>
                 <p className="text-xl text-gray-100 mt-2 font-medium">
                   "How would you like to resolve this situation and move forward?"
@@ -335,15 +504,15 @@ export default function App() {
               </div>
 
               <div className="flex flex-col space-y-3">
-                <Button variant="option" onClick={() => handleChoice2('A')}>
+                <Button variant="option" onClick={() => handleChoice2('A')} isAudioOn={isAudioOn}>
                   <span className="font-semibold text-gray-400 mr-3">A.</span>
                   Temporarily redistribute his workload across the team to give him breathing room.
                 </Button>
-                <Button variant="option" onClick={() => handleChoice2('B')}>
+                <Button variant="option" onClick={() => handleChoice2('B')} isAudioOn={isAudioOn}>
                   <span className="font-semibold text-gray-400 mr-3">B.</span>
                   Set strict daily deadlines and monitor his progress closely until performance improves.
                 </Button>
-                <Button variant="option" onClick={() => handleChoice2('C')}>
+                <Button variant="option" onClick={() => handleChoice2('C')} isAudioOn={isAudioOn}>
                   <span className="font-semibold text-gray-400 mr-3">C.</span>
                   Escalate the issue to HR and put him on a formal Performance Improvement Plan (PIP).
                 </Button>
@@ -368,6 +537,7 @@ export default function App() {
 
         return (
           <BackgroundContainer image={IMAGES.officeBlurred} overlay="bg-[#121212]/95">
+            <AudioToggle />
             <div className="w-full max-w-3xl bg-[#1E1E1E] border border-gray-700 rounded-2xl overflow-hidden shadow-2xl">
               <div className="bg-gradient-to-r from-[#4A90E2]/20 to-transparent p-8 border-b border-gray-700">
                 <div className="flex justify-between items-start">
@@ -418,7 +588,7 @@ export default function App() {
                   </div>
                 </div>
 
-                <Button onClick={() => setScreen(8)} className="w-full">
+                <Button onClick={() => setScreen(8)} className="w-full" isAudioOn={isAudioOn}>
                   View Detailed Analytics Dashboard <BarChart3 className="w-4 h-4" />
                 </Button>
               </div>
@@ -429,7 +599,6 @@ export default function App() {
       case 8: // ANALYTICS DASHBOARD
         const finalScore = Math.round((metrics.trust + metrics.accountability + metrics.morale + metrics.transparency) / 4);
         
-        // Helper to render metric bars
         const MetricBar = ({ label, value, colorClass }) => (
           <div className="mb-4">
             <div className="flex justify-between text-sm mb-1">
@@ -447,9 +616,9 @@ export default function App() {
 
         return (
           <BackgroundContainer image={IMAGES.officeBlurred} overlay="bg-[#121212]/95">
+             <AudioToggle />
              <div className="w-full max-w-5xl h-[85vh] flex flex-col bg-[#1E1E1E] border border-gray-700 rounded-2xl shadow-2xl overflow-hidden">
                 
-                {/* Dashboard Header */}
                 <div className="flex items-center justify-between p-6 bg-black/40 border-b border-gray-700 shrink-0">
                   <div className="flex items-center gap-3">
                     <div className="p-2 bg-[#4A90E2]/20 rounded-lg">
@@ -460,19 +629,15 @@ export default function App() {
                       <p className="text-xs text-gray-400">Comprehensive simulation review</p>
                     </div>
                   </div>
-                  <Button variant="outline" onClick={resetSimulation} className="py-2 text-sm">
+                  <Button variant="outline" onClick={resetSimulation} className="py-2 text-sm" isAudioOn={isAudioOn}>
                     Restart Simulation
                   </Button>
                 </div>
 
-                {/* Dashboard Content */}
                 <div className="flex-1 overflow-y-auto p-6">
                   <div className="grid lg:grid-cols-3 gap-6">
                     
-                    {/* Left Column */}
                     <div className="lg:col-span-1 space-y-6">
-                      
-                      {/* Profile Card */}
                       <div className="bg-black/30 p-5 rounded-xl border border-white/5">
                         <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4 flex items-center gap-2">
                           <User className="w-4 h-4" /> Participant Profile
@@ -493,20 +658,15 @@ export default function App() {
                         </div>
                       </div>
 
-                      {/* Benchmark Card */}
                       <div className="bg-gradient-to-br from-[#4A90E2]/20 to-transparent p-5 rounded-xl border border-[#4A90E2]/30 relative overflow-hidden">
                         <Award className="absolute -right-4 -bottom-4 w-24 h-24 text-[#4A90E2]/10" />
                         <h3 className="text-sm font-semibold text-[#4A90E2] uppercase tracking-wider mb-2 relative z-10">Global Benchmark</h3>
                         <p className="text-3xl font-bold text-white relative z-10 mb-1">Top {finalScore > 75 ? '15%' : (finalScore > 50 ? '45%' : '80%')}</p>
                         <p className="text-xs text-gray-300 relative z-10">You scored higher than {finalScore > 75 ? '85%' : (finalScore > 50 ? '55%' : '20%')} of participants in handling disengaged employees.</p>
                       </div>
-
                     </div>
 
-                    {/* Right Column (Metrics) */}
                     <div className="lg:col-span-2 grid sm:grid-cols-2 gap-6">
-                      
-                      {/* Core Metrics */}
                       <div className="bg-black/30 p-6 rounded-xl border border-white/5 sm:col-span-2">
                         <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-6 flex items-center gap-2">
                           <TrendingUp className="w-4 h-4" /> Core Attribute Progression
@@ -519,7 +679,6 @@ export default function App() {
                         </div>
                       </div>
 
-                      {/* Competency Map (Simulated Radar/Bar) */}
                       <div className="bg-black/30 p-6 rounded-xl border border-white/5 sm:col-span-2">
                         <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-6 flex items-center gap-2">
                           <Users className="w-4 h-4" /> Specific Competencies
@@ -545,20 +704,9 @@ export default function App() {
                               <div className={`h-full ${choices[2] === 'B' ? 'bg-[#4A90E2] w-[90%]' : 'bg-yellow-500 w-[60%]'}`}></div>
                             </div>
                           </div>
-
-                           <div>
-                            <div className="flex justify-between text-xs mb-1 text-gray-400 uppercase">
-                              <span>Psychological Safety</span>
-                              <span>{metrics.trust > 60 ? 'High' : 'Low'}</span>
-                            </div>
-                            <div className="w-full flex h-3 bg-black/50 rounded overflow-hidden">
-                              <div className={`h-full ${metrics.trust > 60 ? 'bg-green-500 w-[80%]' : 'bg-red-500 w-[30%]'}`}></div>
-                            </div>
-                          </div>
                         </div>
 
                       </div>
-
                     </div>
                   </div>
                 </div>
@@ -574,14 +722,8 @@ export default function App() {
   return (
     <>
       <style dangerouslySetInnerHTML={{__html: `
-        @keyframes fadeIn {
-          from { opacity: 0; transform: scale(0.98); }
-          to { opacity: 1; transform: scale(1); }
-        }
-        @keyframes slideInRight {
-          from { opacity: 0; transform: translateX(20px); }
-          to { opacity: 1; transform: translateX(0); }
-        }
+        @keyframes fadeIn { from { opacity: 0; transform: scale(0.98); } to { opacity: 1; transform: scale(1); } }
+        @keyframes slideInRight { from { opacity: 0; transform: translateX(20px); } to { opacity: 1; transform: translateX(0); } }
         body { margin: 0; overflow-x: hidden; background-color: #121212; }
       `}} />
       {renderScreen()}
