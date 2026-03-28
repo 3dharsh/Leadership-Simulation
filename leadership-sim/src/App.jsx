@@ -304,8 +304,10 @@ export default function App() {
         return (
           <BackgroundContainer image={IMAGES.officeBlurred} blurred>
             <div className="bg-[#1E1E1E]/90 backdrop-blur-xl border border-white/10 p-8 rounded-2xl w-full max-w-md shadow-2xl flex flex-col items-center text-center">
-              <div className="w-38 h-25 bg-[#4A90E2]/20 rounded-2xl flex items-center justify-center mb-6 border border-[#4A90E2]/30">
-                <img className="w-23 h-13 object-contain animate-pulse rounded" src={Logo} alt="Logo" />
+              <div className="w-38 h-25 bg-[#4A90E2]/20 rounded-2xl flex items-center justify-center mb-6 border border-[#4A90E2]/30 p-2">
+                 {/* Provide fallback in case logo doesn't resolve in some environments */}
+                 <img className="w-23 h-13 object-contain animate-pulse rounded" src={Logo} alt="Logo" onError={(e) => { e.target.style.display='none'; }}/>
+                 <BrainCircuit className="text-[#4A90E2] w-8 h-8 animate-pulse ml-[-1rem] hidden" />
               </div>
               <h1 className="text-3xl font-bold mb-2 tracking-tight">Leadership Virtual Simulation Lab</h1>
               <p className="text-gray-400 text-sm mb-8">Experience real-world leadership scenarios with full VR-style audio and visual feedback.</p>
@@ -370,13 +372,14 @@ export default function App() {
         return (
           <BackgroundContainer image={IMAGES.meetingRoom} overlay="bg-black/60">
             <AudioToggle />
-            {/* Visual Vector Intro */}
-            <div className="absolute bottom-40 left-1/2 -translate-x-1/2 opacity-70">
-                <VectorAvatar emotion="neutral" className="w-40 h-40 blur-[2px]" />
-            </div>
+            <div className="absolute inset-0 flex flex-col justify-end pb-8 px-4 sm:px-8 max-w-4xl mx-auto w-full">
+              
+              {/* Unified Avatar Positioning */}
+              <div className="flex justify-start ml-4 sm:ml-8 mb-[-1.5rem] relative z-0 opacity-80">
+                 <VectorAvatar emotion="neutral" className="w-48 h-48" />
+              </div>
 
-            <div className="absolute bottom-10 left-1/2 -translate-x-1/2 w-full max-w-3xl px-4">
-              <div className="bg-[#1E1E1E]/80 backdrop-blur-md border border-white/10 p-6 sm:p-8 rounded-xl shadow-2xl">
+              <div className="bg-[#1E1E1E]/80 backdrop-blur-md border border-white/10 p-6 sm:p-8 rounded-xl shadow-2xl relative z-10">
                 <p className="text-xl sm:text-2xl font-light leading-relaxed mb-6 italic text-gray-200">
                   "You enter the meeting room. Rahul is already seated. He looks slightly disengaged, staring at his notebook and avoiding eye contact."
                 </p>
@@ -395,11 +398,11 @@ export default function App() {
           <BackgroundContainer image={IMAGES.officeBlurred} overlay="bg-black/70">
             <AudioToggle />
             
-            <div className="absolute inset-0 flex flex-col justify-end pb-8 px-4 sm:px-8 max-w-5xl mx-auto w-full">
+            <div className="absolute inset-0 flex flex-col justify-end pb-8 px-4 sm:px-8 max-w-4xl mx-auto w-full">
               
-              {/* Dynamic Avatar Container */}
-              <div className="flex justify-center mb-[-2rem] relative z-0">
-                 <VectorAvatar emotion="neutral" className="w-56 h-56" />
+              {/* Unified Avatar Positioning */}
+              <div className="flex justify-start ml-4 sm:ml-8 mb-[-1.5rem] relative z-0 transition-all duration-500">
+                 <VectorAvatar emotion="neutral" className="w-48 h-48" />
               </div>
 
               {/* Character Dialogue */}
@@ -438,7 +441,7 @@ export default function App() {
             <AudioToggle />
             
             {/* VR HUD Feedback Overlay */}
-            <div className="absolute top-8 right-8 bg-black/60 backdrop-blur-md border border-white/10 p-5 rounded-xl shadow-2xl min-w-[200px] animate-[slideInRight_0.5s_ease-out]">
+            <div className="absolute top-8 right-8 bg-black/60 backdrop-blur-md border border-white/10 p-5 rounded-xl shadow-2xl min-w-[200px] animate-[slideInRight_0.5s_ease-out] z-50">
               <div className="flex items-center gap-2 mb-3 pb-2 border-b border-white/10">
                 <BarChart3 className="w-4 h-4 text-gray-400" />
                 <h3 className="text-xs font-bold uppercase tracking-wider text-gray-400">Impact Analytics</h3>
@@ -455,13 +458,14 @@ export default function App() {
               </div>
             </div>
 
-            {/* Dynamic Avatar */}
-            <div className="absolute top-[20%] left-1/2 -translate-x-1/2 drop-shadow-2xl">
-                <VectorAvatar emotion={currentPath.emotion} className="w-64 h-64" />
-            </div>
+            <div className="absolute inset-0 flex flex-col justify-end pb-8 px-4 sm:px-8 max-w-4xl mx-auto w-full">
+              
+              {/* Unified Avatar Positioning */}
+              <div className="flex justify-start ml-4 sm:ml-8 mb-[-1.5rem] relative z-0 transition-all duration-500">
+                  <VectorAvatar emotion={currentPath.emotion} className="w-48 h-48" />
+              </div>
 
-            <div className="absolute bottom-10 left-1/2 -translate-x-1/2 w-full max-w-3xl px-4">
-              <div className="bg-[#1E1E1E]/90 backdrop-blur-md border border-white/10 p-6 sm:p-8 rounded-xl shadow-2xl">
+              <div className="bg-[#1E1E1E]/90 backdrop-blur-md border border-white/10 p-6 sm:p-8 rounded-xl shadow-2xl relative z-10">
                 
                 <div className="flex items-start gap-4 mb-6">
                   <div className="p-3 bg-white/5 rounded-lg border border-white/10 shrink-0">
@@ -492,9 +496,9 @@ export default function App() {
         return (
           <BackgroundContainer image={IMAGES.officeBlurred} overlay="bg-black/70">
             <AudioToggle />
-            <div className="absolute inset-0 flex flex-col justify-end pb-8 px-4 sm:px-8 max-w-5xl mx-auto w-full">
+            <div className="absolute inset-0 flex flex-col justify-end pb-8 px-4 sm:px-8 max-w-4xl mx-auto w-full">
               
-              <div className="bg-[#1E1E1E]/90 backdrop-blur-xl border border-gray-700 p-6 rounded-t-2xl shadow-2xl relative mb-4">
+              <div className="bg-[#1E1E1E]/90 backdrop-blur-xl border border-gray-700 p-6 rounded-t-2xl shadow-2xl relative mb-4 z-10">
                  <div className="absolute -top-4 left-6 bg-gray-600 text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider flex items-center gap-2">
                   <Volume2 className="w-3 h-3" /> System Prompt
                 </div>
@@ -503,7 +507,7 @@ export default function App() {
                 </p>
               </div>
 
-              <div className="flex flex-col space-y-3">
+              <div className="flex flex-col space-y-3 z-10">
                 <Button variant="option" onClick={() => handleChoice2('A')} isAudioOn={isAudioOn}>
                   <span className="font-semibold text-gray-400 mr-3">A.</span>
                   Temporarily redistribute his workload across the team to give him breathing room.
