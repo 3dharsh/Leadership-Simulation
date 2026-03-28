@@ -136,7 +136,7 @@ const VectorAvatar = ({ emotion = 'neutral', className = "w-48 h-48" }) => {
         {/* Head */}
         <rect x="30" y="15" width="60" height="75" rx="30" fill="#fcd5ce" stroke="#e8a598" strokeWidth="1.5"/>
         {/* Hair */}
-        <path d="M 30 45 Q 30 10 60 15 Q 90 10 90 45 Q 75 20 60 25 Q 45 20 30 45" fill="#0f172a"/>
+        <path d="M 25 40 Q 30 07 60 13 Q 95 07 92 45 Q 75 20 60 25 Q 45 20 30 45" fill="#0f172a"/>
         {/* Eyes (Constant) */}
         <path d="M 45 50 A 4 4 0 1 1 45 49.9" stroke="#0f172a" strokeWidth="4" strokeLinecap="round"/>
         <path d="M 75 50 A 4 4 0 1 1 75 49.9" stroke="#0f172a" strokeWidth="4" strokeLinecap="round"/>
@@ -307,7 +307,7 @@ export default function App() {
               <div className="w-38 h-25 bg-[#4A90E2]/20 rounded-2xl flex items-center justify-center mb-6 border border-[#4A90E2]/30">
                 <img className="w-23 h-13 object-contain animate-pulse rounded" src={Logo} alt="Logo" />
               </div>
-              <h1 className="text-3xl font-bold mb-2 tracking-tight">Vighnesh Inc Leadership Virtual Simulation Lab</h1>
+              <h1 className="text-3xl font-bold mb-2 tracking-tight">Leadership Virtual Simulation Lab</h1>
               <p className="text-gray-400 text-sm mb-8">Experience real-world leadership scenarios with full VR-style audio and visual feedback.</p>
               
               <div className="w-full mb-6">
